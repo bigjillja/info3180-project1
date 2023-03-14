@@ -6,7 +6,8 @@ This file contains the routes for your application.
 """
 
 from app import app
-from flask import render_template, request, redirect, url_for
+from flask import render_template, flash, request, redirect, url_for
+from .forms import MyForm, PhotoForm
 
 
 ###
@@ -23,6 +24,50 @@ def home():
 def about():
     """Render the website's about page."""
     return render_template('about.html', name="Mary Jane")
+
+@app.route('/properties/create')
+def create():
+    formdata = MyForm()
+    if formdata.validate_on_submit():
+            title = formdata.title.data
+            description = formdata.description.data
+            price = formdata.price.data
+            rooms = formdata.rooms.data
+            bathrooms = formdata.bathrooms.data
+            property_type = formdata.property_type.data
+            location = formdata.location.data
+
+            flash('Your response has been recorded!', 'success')
+
+    flash_errors(formdata)
+    return render_template('addproperty.html', title=title,
+                                   description=description,
+                                   rooms=rooms,
+                                   bathrooms=bathrooms,
+                                   price=price,
+                                   property_type=property_type,
+                                   location=location)
+
+@app.route('/properties')
+def viewproperties():
+    return render_template('viewproperties.html')
+
+@app.route('/properties/<propertyid>')
+def viewpropertyid():
+    return render_template('viewpropertyid.html')
+
+###
+# The functions below should be applicable to all Flask apps.
+###
+
+# Display Flask WTF errors as Flash messages
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(u"Invalid data! Check %s field - %s" % (
+                getattr(form, field).label.text,
+                error
+            ), 'danger')
 
 
 ###
