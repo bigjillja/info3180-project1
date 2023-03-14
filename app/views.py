@@ -4,11 +4,17 @@ Jinja2 Documentation:    https://jinja.palletsprojects.com/
 Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file contains the routes for your application.
 """
+import os
+from app import app, db
+from flask import render_template, request, redirect, url_for, flash
 
-from app import app
-from flask import render_template, flash, request, redirect, url_for
-from .forms import MyForm, PhotoForm
+from .models import Property
+from .forms import PropertyForm
 
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
+from . import db
 
 ###
 # Routing for your application.
@@ -23,51 +29,7 @@ def home():
 @app.route('/about/')
 def about():
     """Render the website's about page."""
-    return render_template('about.html', name="Mary Jane")
-
-@app.route('/properties/create')
-def create():
-    formdata = MyForm()
-    if formdata.validate_on_submit():
-            title = formdata.title.data
-            description = formdata.description.data
-            price = formdata.price.data
-            rooms = formdata.rooms.data
-            bathrooms = formdata.bathrooms.data
-            property_type = formdata.property_type.data
-            location = formdata.location.data
-
-            flash('Your response has been recorded!', 'success')
-
-    flash_errors(formdata)
-    return render_template('addproperty.html', title=title,
-                                   description=description,
-                                   rooms=rooms,
-                                   bathrooms=bathrooms,
-                                   price=price,
-                                   property_type=property_type,
-                                   location=location)
-
-@app.route('/properties')
-def viewproperties():
-    return render_template('viewproperties.html')
-
-@app.route('/properties/<propertyid>')
-def viewpropertyid():
-    return render_template('viewpropertyid.html')
-
-###
-# The functions below should be applicable to all Flask apps.
-###
-
-# Display Flask WTF errors as Flash messages
-def flash_errors(form):
-    for field, errors in form.errors.items():
-        for error in errors:
-            flash(u"Invalid data! Check %s field - %s" % (
-                getattr(form, field).label.text,
-                error
-            ), 'danger')
+    return render_template('about.html', name="Martin Bartley")
 
 
 ###
@@ -106,3 +68,47 @@ def add_header(response):
 def page_not_found(error):
     """Custom 404 page."""
     return render_template('404.html'), 404
+
+
+# Define the routes and their corresponding view functions
+@app.route('/properties/create', methods=['GET', 'POST'])
+def form():
+    form = PropertyForm()
+    if request.method == 'POST':
+        # Get form data
+        title = request.form['title']
+        description = request.form['description']
+        bedrooms = request.form['bedrooms']
+        bathrooms = request.form['bathrooms']
+        location = request.form['location']
+        price = request.form['price']
+        prop_type = request.form['type']
+
+        # Get file and save to upload folder
+        photo_file = request.files['photo']
+        filename = secure_filename(photo_file.filename)
+        photo_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        # Create new property object and add to database
+        new_prop = Property(title=title, description=description, bedrooms=bedrooms, bathrooms=bathrooms, location=location, price=price, type=prop_type, photo=filename)
+        db.session.add(new_prop)
+        db.session.commit()
+
+        flash('Property added successfully', 'success')
+        return redirect(url_for('properties'))
+
+    return render_template('form.html',form=form)
+
+@app.route('/properties')
+def properties():
+    properties = Property.query.all()
+    return render_template('properties.html', properties=properties)
+
+@app.route('/properties/<propertyid>')
+def property(propertyid):
+    property = Property.query.get(propertyid)
+    return render_template('property.html', property=property)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER']), filename)
